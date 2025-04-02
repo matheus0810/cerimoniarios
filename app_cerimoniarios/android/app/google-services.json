@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "723236389926",
+    "project_id": "cerimoniarios",
+    "storage_bucket": "cerimoniarios.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:723236389926:android:f7969dd2387b9c483312e7",
+        "android_client_info": {
+          "package_name": "com.example.app_cerimoniarios"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZw-Tcpg6FSJVjqSGeQcivR6N98LgAP1Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
