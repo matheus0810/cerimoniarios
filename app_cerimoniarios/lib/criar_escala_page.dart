@@ -9,8 +9,11 @@ class CriarEscalaPage extends StatefulWidget {
 class _CriarEscalaPageState extends State<CriarEscalaPage> {
   DateTime? dataSelecionada;
   String horario = '';
-  String local = '';
+  String local = 'São Francisco - Matriz';
   List<Map<String, dynamic>> listaSelecionada = [];
+
+  final locais = ['São Francisco - Matriz', 'São Raphael', 'São Judas'];
+  final funcoes = ['mestre', 'auxiliar', 'naveta', 'turibulo'];
 
   void salvarEscala() async {
     if (dataSelecionada == null || horario.isEmpty || local.isEmpty || listaSelecionada.isEmpty) {
@@ -55,12 +58,14 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
               decoration: InputDecoration(labelText: 'Horário (ex: 18:00)'),
               onChanged: (val) => horario = val,
             ),
-            TextFormField(
+            DropdownButtonFormField<String>(
+              value: local,
+              items: locais.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              onChanged: (val) => setState(() => local = val!),
               decoration: InputDecoration(labelText: 'Local'),
-              onChanged: (val) => local = val,
             ),
             SizedBox(height: 20),
-            Text('Selecione os cerimoniários e funções:'),
+            Text('Cerimoniários escalados:'),
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
               builder: (context, snapshot) {
@@ -74,11 +79,8 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
                       subtitle: Text(user['email']),
                       trailing: DropdownButton<String>(
                         hint: Text('Função'),
-                        value: listaSelecionada
-                            .firstWhere((e) => e['uid'] == doc.id, orElse: () => {})['funcao'],
-                        items: ['Cruz Alta', 'Naveteiro', 'Turiferário', 'Tocha', 'Livro']
-                            .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                            .toList(),
+                        value: listaSelecionada.firstWhere((e) => e['uid'] == doc.id, orElse: () => {})['funcao'],
+                        items: funcoes.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
                         onChanged: (funcao) {
                           setState(() {
                             listaSelecionada.removeWhere((e) => e['uid'] == doc.id);

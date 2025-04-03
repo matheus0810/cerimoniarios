@@ -19,11 +19,7 @@ class _ListarEscalasPageState extends State<ListarEscalasPage> {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
     uid = user?.uid;
-    FirebaseFirestore.instance
-        .collection('usuarios')
-        .doc(uid)
-        .get()
-        .then((doc) {
+    FirebaseFirestore.instance.collection('usuarios').doc(uid).get().then((doc) {
       setState(() {
         funcaoUsuario = doc.data()?['funcao'];
       });
@@ -32,7 +28,8 @@ class _ListarEscalasPageState extends State<ListarEscalasPage> {
 
   String formatarData(String dataIso) {
     final data = DateTime.parse(dataIso);
-    return DateFormat('dd/MM/yyyy').format(data);
+    final formatter = DateFormat('EEEE - dd/MM/yyyy', 'pt_BR');
+    return formatter.format(data);
   }
 
   @override
@@ -41,36 +38,24 @@ class _ListarEscalasPageState extends State<ListarEscalasPage> {
       return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Stream de acordo com a função do usuário
     final escalasStream = funcaoUsuario == 'coordenador'
-        ? FirebaseFirestore.instance
-            .collection('escalas')
-            .orderBy('data')
-            .snapshots()
+        ? FirebaseFirestore.instance.collection('escalas').orderBy('data').snapshots()
         : FirebaseFirestore.instance
             .collection('escalas')
-            .where('cerimoniarios',
-                arrayContainsAny: [{'uid': uid}]) // só escala que ele está
+            .where('cerimoniarios', arrayContainsAny: [{'uid': uid}])
             .orderBy('data')
             .snapshots();
 
     return Scaffold(
-      appBar: AppBar(title: Text('Minhas Escalas')),
+      appBar: AppBar(title: Text('Escalas')),
       body: StreamBuilder<QuerySnapshot>(
         stream: escalasStream,
         builder: (context, snapshot) {
           if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
-
           final escalas = snapshot.data!.docs;
 
           if (escalas.isEmpty) {
-            return Center(
-              child: Text(
-                funcaoUsuario == 'coordenador'
-                    ? 'Nenhuma escala cadastrada.'
-                    : 'Você não está escalado em nenhuma missa.',
-              ),
-            );
+            return Center(child: Text('Nenhuma escala encontrada.'));
           }
 
           return ListView.builder(
@@ -83,15 +68,14 @@ class _ListarEscalasPageState extends State<ListarEscalasPage> {
               final lista = doc['cerimoniarios'] as List<dynamic>;
 
               return Card(
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                margin: EdgeInsets.all(12),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('$data às $horario — $local',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       Divider(),
                       ...lista.map((c) => ListTile(
                             contentPadding: EdgeInsets.zero,
