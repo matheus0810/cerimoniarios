@@ -10,22 +10,47 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
   DateTime? dataSelecionada;
   String horario = '';
   String local = 'São Francisco - Matriz';
-  List<Map<String, dynamic>> listaSelecionada = [];
 
   final locais = ['São Francisco - Matriz', 'São Raphael', 'São Judas'];
   final funcoes = ['mestre', 'auxiliar', 'naveta', 'turibulo'];
 
+  Map<String, bool> selecionados = {}; // uid => true/false
+  Map<String, String> funcoesSelecionadas = {}; // uid => função
+
   void salvarEscala() async {
-    if (dataSelecionada == null || horario.isEmpty || local.isEmpty || listaSelecionada.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Preencha todos os campos')));
+    if (dataSelecionada == null ||
+        horario.isEmpty ||
+        local.isEmpty ||
+        selecionados.values.where((v) => v).isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Preencha todos os campos')));
       return;
+    }
+
+    final cerimoniarios = <Map<String, dynamic>>[];
+    final uids = <String>[];
+
+    for (final entry in selecionados.entries) {
+      if (entry.value) {
+        final uid = entry.key;
+        final doc =
+            await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
+        final data = doc.data()!;
+        cerimoniarios.add({
+          'uid': uid,
+          'nome': data['nome'],
+          'funcao': funcoesSelecionadas[uid] ?? '',
+        });
+        uids.add(uid);
+      }
     }
 
     await FirebaseFirestore.instance.collection('escalas').add({
       'data': dataSelecionada!.toIso8601String(),
       'horario': horario,
       'local': local,
-      'cerimoniarios': listaSelecionada,
+      'uids': uids, // auxiliar para filtragem
+      'cerimoniarios': cerimoniarios,
     });
 
     Navigator.pop(context);
@@ -65,7 +90,7 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
               decoration: InputDecoration(labelText: 'Local'),
             ),
             SizedBox(height: 20),
-            Text('Cerimoniários escalados:'),
+            Text('Selecione os cerimoniários:'),
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
               builder: (context, snapshot) {
@@ -74,24 +99,37 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
                 return Column(
                   children: users.map((doc) {
                     final user = doc.data() as Map<String, dynamic>;
-                    return ListTile(
-                      title: Text(user['nome']),
-                      subtitle: Text(user['email']),
-                      trailing: DropdownButton<String>(
-                        hint: Text('Função'),
-                        value: listaSelecionada.firstWhere((e) => e['uid'] == doc.id, orElse: () => {})['funcao'],
-                        items: funcoes.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-                        onChanged: (funcao) {
-                          setState(() {
-                            listaSelecionada.removeWhere((e) => e['uid'] == doc.id);
-                            listaSelecionada.add({
-                              'uid': doc.id,
-                              'nome': user['nome'],
-                              'funcao': funcao,
-                            });
-                          });
-                        },
-                      ),
+                    final uid = doc.id;
+                    selecionados.putIfAbsent(uid, () => false);
+                    funcoesSelecionadas.putIfAbsent(uid, () => funcoes.first);
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CheckboxListTile(
+                          title: Text(user['nome']),
+                          subtitle: Text(user['email']),
+                          value: selecionados[uid],
+                          onChanged: (val) {
+                            setState(() => selecionados[uid] = val ?? false);
+                          },
+                        ),
+                        if (selecionados[uid] == true)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 16.0),
+                            child: DropdownButton<String>(
+                              value: funcoesSelecionadas[uid],
+                              items: funcoes
+                                  .map((f) =>
+                                      DropdownMenuItem(value: f, child: Text(f)))
+                                  .toList(),
+                              onChanged: (val) =>
+                                  setState(() => funcoesSelecionadas[uid] = val!),
+                              hint: Text('Função'),
+                            ),
+                          ),
+                        Divider(),
+                      ],
                     );
                   }).toList(),
                 );
