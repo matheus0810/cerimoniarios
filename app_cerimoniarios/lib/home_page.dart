@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'listar_escalas_page.dart';
 
 class HomePage extends StatelessWidget {
   Future<String> buscarNomeUsuario() async {
@@ -19,7 +20,18 @@ class HomePage extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),
-          )
+          ), 
+          IconButton(
+  icon: Icon(Icons.event_note),
+  tooltip: 'Ver Escalas',
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ListarEscalasPage()),
+    );
+  },
+),
+
         ],
       ),
       body: FutureBuilder<String>(
@@ -33,6 +45,7 @@ class HomePage extends StatelessWidget {
                 style: TextStyle(fontSize: 22)),
           );
         },
+        
       ),
     );
   }
