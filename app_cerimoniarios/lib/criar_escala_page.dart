@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'fcm_service.dart';
 
 class CriarEscalaPage extends StatefulWidget {
   @override
@@ -10,50 +13,129 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
   DateTime? dataSelecionada;
   String horario = '';
   String local = 'São Francisco - Matriz';
+  String busca = '';
 
   final locais = ['São Francisco - Matriz', 'São Raphael', 'São Judas'];
   final funcoes = ['mestre', 'auxiliar', 'naveta', 'turibulo'];
 
-  Map<String, bool> selecionados = {}; // uid => true/false
-  Map<String, String> funcoesSelecionadas = {}; // uid => função
+  Map<String, Map<String, dynamic>> selecionados = {}; // uid => {nome, funcao}
 
   void salvarEscala() async {
     if (dataSelecionada == null ||
         horario.isEmpty ||
         local.isEmpty ||
-        selecionados.values.where((v) => v).isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Preencha todos os campos')));
+        selecionados.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Preencha todos os campos'),
+      ));
       return;
     }
 
-    final cerimoniarios = <Map<String, dynamic>>[];
-    final uids = <String>[];
+    final listaFinal = selecionados.entries.map((e) {
+      return {
+        'uid': e.key,
+        'nome': e.value['nome'],
+        'funcao': e.value['funcao'],
+      };
+    }).toList();
 
-    for (final entry in selecionados.entries) {
-      if (entry.value) {
-        final uid = entry.key;
-        final doc =
-            await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
-        final data = doc.data()!;
-        cerimoniarios.add({
-          'uid': uid,
-          'nome': data['nome'],
-          'funcao': funcoesSelecionadas[uid] ?? '',
-        });
-        uids.add(uid);
-      }
+    final tokens = <String>[];
+
+    for (final uid in selecionados.keys) {
+      final doc = await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
+      final token = doc.data()?['fcm_token'];
+      if (token != null) tokens.add(token);
     }
 
     await FirebaseFirestore.instance.collection('escalas').add({
       'data': dataSelecionada!.toIso8601String(),
       'horario': horario,
       'local': local,
-      'uids': uids, // auxiliar para filtragem
-      'cerimoniarios': cerimoniarios,
+      'uids': selecionados.keys.toList(),
+      'cerimoniarios': listaFinal,
     });
 
+for (final token in tokens) {
+  await http.post(
+    Uri.parse('https://servidor-notificacoes.onrender.com/enviar'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'token': token,
+      'titulo': 'Nova Escala',
+      'corpo': 'Você foi escalado para a missa em $local às $horario.',
+    }),
+  );
+}
+
+
     Navigator.pop(context);
+  }
+
+  Widget buildSelecionados() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: selecionados.entries.map((entry) {
+        final uid = entry.key;
+        final dados = entry.value;
+        return ListTile(
+          title: Text(dados['nome']),
+          trailing: DropdownButton<String>(
+            value: dados['funcao'],
+            items: funcoes
+                .map((f) => DropdownMenuItem(value: f, child: Text(f)))
+                .toList(),
+            onChanged: (val) {
+              setState(() {
+                selecionados[uid]!['funcao'] = val!;
+              });
+            },
+          ),
+          leading: IconButton(
+            icon: Icon(Icons.remove_circle, color: Colors.red),
+            onPressed: () {
+              setState(() {
+                selecionados.remove(uid);
+              });
+            },
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget buildBuscaUsuarios() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return SizedBox();
+        final results = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final nome = data['nome']?.toLowerCase() ?? '';
+          return busca.isNotEmpty &&
+              nome.contains(busca.toLowerCase()) &&
+              !selecionados.containsKey(doc.id);
+        }).toList();
+
+        return Column(
+          children: results.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return ListTile(
+              title: Text(data['nome']),
+              subtitle: Text(data['email']),
+              onTap: () {
+                setState(() {
+                  selecionados[doc.id] = {
+                    'nome': data['nome'],
+                    'funcao': funcoes.first,
+                  };
+                  busca = '';
+                });
+              },
+            );
+          }).toList(),
+        );
+      },
+    );
   }
 
   @override
@@ -89,57 +171,20 @@ class _CriarEscalaPageState extends State<CriarEscalaPage> {
               onChanged: (val) => setState(() => local = val!),
               decoration: InputDecoration(labelText: 'Local'),
             ),
-            SizedBox(height: 20),
-            Text('Selecione os cerimoniários:'),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return CircularProgressIndicator();
-                final users = snapshot.data!.docs;
-                return Column(
-                  children: users.map((doc) {
-                    final user = doc.data() as Map<String, dynamic>;
-                    final uid = doc.id;
-                    selecionados.putIfAbsent(uid, () => false);
-                    funcoesSelecionadas.putIfAbsent(uid, () => funcoes.first);
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CheckboxListTile(
-                          title: Text(user['nome']),
-                          subtitle: Text(user['email']),
-                          value: selecionados[uid],
-                          onChanged: (val) {
-                            setState(() => selecionados[uid] = val ?? false);
-                          },
-                        ),
-                        if (selecionados[uid] == true)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 16.0),
-                            child: DropdownButton<String>(
-                              value: funcoesSelecionadas[uid],
-                              items: funcoes
-                                  .map((f) =>
-                                      DropdownMenuItem(value: f, child: Text(f)))
-                                  .toList(),
-                              onChanged: (val) =>
-                                  setState(() => funcoesSelecionadas[uid] = val!),
-                              hint: Text('Função'),
-                            ),
-                          ),
-                        Divider(),
-                      ],
-                    );
-                  }).toList(),
-                );
-              },
+            Divider(),
+            TextField(
+              decoration: InputDecoration(labelText: 'Buscar cerimoniário'),
+              onChanged: (val) => setState(() => busca = val),
             ),
+            buildBuscaUsuarios(),
+            Divider(),
+            Text('Escalados:', style: TextStyle(fontWeight: FontWeight.bold)),
+            buildSelecionados(),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: salvarEscala,
               child: Text('Salvar Escala'),
-            )
+            ),
           ],
         ),
       ),

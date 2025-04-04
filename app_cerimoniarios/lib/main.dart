@@ -6,12 +6,19 @@ import 'home_page.dart';
 import 'admin_home_page.dart';
 import 'login_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'firebase_token_handler.dart';
+import 'firebase_messaging_setup.dart';
+
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseMessagingSetup.inicializar(); // <- chamada adicionada
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+   await initializeDateFormatting('pt_BR', null); // <- adicione isso aqui
   runApp(MyApp());
 }
 
@@ -34,6 +41,7 @@ class MyApp extends StatelessWidget {
               builder: (context, userSnap) {
                 if (!userSnap.hasData) return CircularProgressIndicator();
                 final dados = userSnap.data!.data() as Map<String, dynamic>;
+                FirebaseTokenHandler.salvarTokenFCM();
                 return dados['funcao'] == 'coordenador'
                     ? AdminHomePage()
                     : HomePage();
