@@ -46,7 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '723236389926',
     projectId: 'cerimoniarios',
     authDomain: 'cerimoniarios.firebaseapp.com',
-    storageBucket: 'cerimoniarios.firebasestorage.app',
+    storageBucket: 'cerimoniarios.appspot.com', // ✅ CORRIGIDO
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -83,5 +83,4 @@ class DefaultFirebaseOptions {
     authDomain: 'cerimoniarios.firebaseapp.com',
     storageBucket: 'cerimoniarios.firebasestorage.app',
   );
-
 }

@@ -1,4 +1,3 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +7,7 @@ class FirebaseMessagingSetup {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> inicializar() async {
-    await Firebase.initializeApp();
+    // ❌ Firebase já foi inicializado no main.dart, então REMOVIDO
 
     // Solicita permissões (iOS)
     await FirebaseMessaging.instance.requestPermission();
@@ -28,8 +27,8 @@ class FirebaseMessagingSetup {
       print('Mensagem recebida em foreground: ${message.notification?.title}');
 
       const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'default_channel', // ID do canal
-        'Notificações',    // Nome do canal
+        'default_channel',
+        'Notificações',
         importance: Importance.max,
         priority: Priority.high,
       );
@@ -68,23 +67,6 @@ class FirebaseMessagingSetup {
       'Teste de Notificação',
       'Esta é uma notificação de teste',
       platformDetails,
-    );
-  }
-}
-
-class TesteNotificacaoPage extends StatelessWidget {
-  const TesteNotificacaoPage({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Notificação Teste')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: FirebaseMessagingSetup.mostrarNotificacaoTeste,
-          child: Text('Enviar Notificação de Teste'),
-        ),
-      ),
     );
   }
 }

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'register_page.dart';
+import 'admin_home_page.dart';
+import 'home_page.dart';
+import 'firebase_token_handler.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -12,6 +16,53 @@ class _LoginPageState extends State<LoginPage> {
   String senha = '';
   final _formKey = GlobalKey<FormState>();
 
+  @override
+  void initState() {
+    super.initState();
+    verificarLogin();
+  }
+
+void verificarLogin() async {
+  print('🔍 verificando login');
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final user = FirebaseAuth.instance.currentUser;
+    print('👤 FirebaseAuth.currentUser: $user');
+
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(user.uid)
+            .get();
+
+        final dados = doc.data();
+        print('📄 Dados do Firestore: $dados');
+
+        if (dados == null || !dados.containsKey('funcao')) {
+          print('⚠️ Documento do usuário sem dados ou sem função');
+          return;
+        }
+
+        if (dados['funcao'] == 'coordenador') {
+          print('➡️ Redirecionando para AdminHomePage');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => AdminHomePage()),
+          );
+        } else {
+          print('➡️ Redirecionando para HomePage');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => HomePage()),
+          );
+        }
+      } catch (e) {
+        print('❌ Erro ao consultar Firestore: $e');
+      }
+    }
+  });
+}
+
   void login() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -19,9 +70,11 @@ class _LoginPageState extends State<LoginPage> {
           email: email,
           password: senha,
         );
+        verificarLogin(); // Redireciona após login
       } catch (e) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erro: ${e.toString()}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: ${e.toString()}')),
+        );
       }
     }
   }
